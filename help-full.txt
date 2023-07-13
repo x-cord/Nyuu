@@ -132,6 +132,7 @@ Article/Post Options:
   -f,  --from                Shortcut for `-H From=...`
                              Defaults to 'username <username@host>', where
                              these values are sourced from the local system.
+                             See `--subject` for available placeholders.
   -g,  --groups              Shortcut for `-H Newsgroups=...`
                              Separate multiple groups with commas, without any
                              spaces.

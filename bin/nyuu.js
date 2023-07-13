@@ -240,7 +240,19 @@ var _mainTransform = function(rx, v) {
 				case 'comment2': return argv.comment2 || '';
 				case 'size': return extra.rawSize;
 				case 'timestamp': return extra.genTime;
-				case 'value': return extra;
+				case 'value':
+					if (extra && extra.subject) return extra.subject;
+					return extra;
+				case 'filebase':
+					var path = require('path');
+					return path.basename(extra.file);
+				case 'ngpostid':
+					var rnd = '';
+					var chars = 'abcdef0123456789';
+					var a = 32;
+					while(a--)
+						rnd += chars[(Math.random() * chars.length) | 0];
+					return rnd;
 				default:
 					// rand(n)
 					var rnd = '';
@@ -252,15 +264,15 @@ var _mainTransform = function(rx, v) {
 		});
 	};
 };
-var articleHeaderFn = _mainTransform.bind(null, /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|0?part|parts|size|comment2?|timestamp|rand\((\d+)\))\}/ig);
-var nzbHeaderFn = _mainTransform.bind(null, /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|0?part|parts|value)\}/ig);
+var articleHeaderFn = _mainTransform.bind(null, /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|0?part|parts|size|comment2?|timestamp|ngpostid|rand\((\d+)\))\}/ig);
+var nzbHeaderFn = _mainTransform.bind(null, /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|0?part|parts|value|filebase)\}/ig);
 var RE_FILE_TRANSFORM = /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|0?part|parts)\}/ig;
 var fileTransformFn = _mainTransform.bind(null, RE_FILE_TRANSFORM);
 var filenameTransformFn = function(v) {
 	if(!v) return;
 	var path = require('path');
 	return function(filename) {
-		return v.replace(/\$?\{(filename|basename|pathname)\}/ig, function(m, token, a1) {
+		return v.replace(/\$?\{(filename|basename|pathname|rand\((\d+)\))\}/ig, function(m, token, a1) {
 			switch(token.toLowerCase()) {
 				case 'basename':
 					return path.basename(filename);
@@ -268,6 +280,13 @@ var filenameTransformFn = function(v) {
 					return path.dirname(filename);
 				case 'filename':
 					return filename;
+				default:
+					// rand(n)
+					var rnd = '';
+					var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+					while(a1--)
+						rnd += chars[(Math.random() * chars.length) | 0];
+					return rnd;
 			}
 		});
 	};
@@ -365,7 +384,8 @@ var optMap = {
 	from: {
 		type: 'string',
 		alias: 'f',
-		map: 'postHeaders/From'
+		map: 'postHeaders/From',
+		fn: articleHeaderFn
 	},
 	groups: {
 		type: 'string',
