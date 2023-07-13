@@ -265,7 +265,19 @@ var _mainTransform = function(rx, area, v) {
 					case 'comment2': return argv.comment2 || '';
 					case 'size': return extra.rawSize;
 					case 'timestamp': return extra.genTime;
-					case 'value': return extra;
+					case 'value':
+						if (extra && extra.subject) return extra.subject;
+						return extra;
+					case 'filebase':
+						var path = require('path');
+						return path.basename(extra.file);
+					case 'ngpostid':
+						var rnd = '';
+						var chars = 'abcdef0123456789';
+						var a = 32;
+						while(a--)
+							rnd += chars[(Math.random() * chars.length) | 0];
+						return rnd;
 					default:
 						// rand(n)
 						return randStr(a1);
@@ -303,9 +315,9 @@ var _mainTransform = function(rx, area, v) {
 		return fn.bind(null, cliUtil.friendlySize, argv.comment||'', argv.comment2||'', randStr, UserScriptError);
 	}
 };
-var articleHeaderFn = _mainTransform.bind(null, /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|0?part|parts|size|comment2?|timestamp|rand\((\d+)\))\}/ig);
-var yencNameFn = _mainTransform.bind(null, /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|parts|comment2?|rand\((\d+)\))\}/ig);
-var nzbHeaderFn = _mainTransform.bind(null, /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|0?part|parts|value)\}/ig);
+var articleHeaderFn = _mainTransform.bind(null, /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|0?part|parts|size|comment2?|timestamp|ngpostid|rand\((\d+)\))\}/ig);
+var yencNameFn = _mainTransform.bind(null, /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|parts|comment2?|ngpostid|rand\((\d+)\))\}/ig);
+var nzbHeaderFn = _mainTransform.bind(null, /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|0?part|parts|value|filebase)\}/ig);
 var RE_FILE_TRANSFORM = /\$?\{(0?filenum|files|filename|fnamebase|filesize|file[kmgta]size|0?part|parts)\}/ig;
 var fileTransformFn = _mainTransform.bind(null, RE_FILE_TRANSFORM);
 var filenameTransformFn = function(area, v) {
