@@ -120,6 +120,7 @@ nzb: {
 		flags: 'wx', // change to 'w' to overwrite file if it exists
 		encoding: 'utf-8',
 	},
+	fileMode: 'stream', // can be 'stream', 'defer' (only write at end) or 'temp' (write to temp file, rename on end)
 	overrides: {
 		// here you can override values for NZB <file> entries
 		// if unset, will use the NNTP header values from the first segment of the file
@@ -156,6 +157,7 @@ nzb: function(filenum, filenumtotal, filename, filesize) {
 	];
 },
 */
+nzbDelIncomplete: false, // if process finishes without completing the NZB, remove it; only applies if it's being written to a file
 
 /** Input Stream Copy/Tee Options **/
 inputCopy: null, // a writable stream to copy the input to, or a function (see example below)

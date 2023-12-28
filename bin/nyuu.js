@@ -497,6 +497,15 @@ var optMap = {
 			return v ? 'w' : 'wx';
 		}
 	},
+	'nzb-file-mode': {
+		type: 'enum',
+		enum: ['stream','defer','temp'],
+		map: 'nzb/fileMode'
+	},
+	'nzb-del-incomplete': {
+		type: 'bool',
+		map: 'nzbDelIncomplete'
+	},
 	meta: {
 		type: 'map',
 		alias: 'M'
@@ -1229,6 +1238,7 @@ if(verbosity < 1) {
 	logger.error = function(){progressMgr.errorCount++;};
 	// suppress output from uncaught exceptions
 	process.once('uncaughtException', function(err) {
+		process.emit('finished');
 		process.exit(isNode010 ? 8 : 1);
 	});
 } else {

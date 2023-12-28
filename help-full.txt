@@ -302,6 +302,13 @@ NZB Output Options:
                              `fd://1` being a shortcut for stdout.
   -O,  --overwrite           If NZB exists, overwrite it, otherwise will error
                              (flag option)
+       --nzb-del-incomplete  Remove NZB file if Nyuu exits without finishing.
+                             Note: deletion may not occur in the event of a
+                             crash. (flag option)
+       --nzb-file-mode       Strategy for writing NZB files. Options are:
+                                 stream: stream output to file (default)
+                                 defer: write file only at end, in one go
+                                 temp: stream to temp file, then rename at end
        --minify              Minify outputted NZB (flag option)
        --nzb-compress        Compress outputted NZB. Can be gzip, zlib, deflate
                              or brotli. (brotli requires NodeJS >= 11.7.0)
