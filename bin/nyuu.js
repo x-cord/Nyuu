@@ -1058,7 +1058,13 @@ if(argv['preload-modules']) {
 	ulOpts.servers.forEach(function(server) {
 		if(server.secure) require('tls');
 	});
+	
+	// preload these in case we need them
+	require('../lib/filereader');
+	require('../lib/streamreader');
+	
 	// we won't consider modules loaded by the UploadManager constructor (zlib, nzbbuffer, bufferpool, procman) as 'too late', since it occurs before the 'start' event is fired, hence won't bother preloading these here
+	// same with StreamWriter and StreamTee (loaded before UploadManager)
 }
 
 // if doing raw posts, default keepMessageId to true
