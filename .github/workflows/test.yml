@@ -32,7 +32,7 @@ jobs:
     name: Test on Node v${{ matrix.version }}
     runs-on: ubuntu-latest
     steps:
-      - uses: MatteoH2O1999/setup-python@v1
+      - uses: MatteoH2O1999/setup-python@v3
         with:
           python-version: '2.7'
         if: ${{ matrix.python2 }}
