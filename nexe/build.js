@@ -184,7 +184,7 @@ nexe.compile({
 			var data = await compiler.readFileAsync('deps/yencode/src/yencode.cc');
 			data = data.contents.toString();
 			data = data.replace(/#if NODE_VERSION_AT_LEAST\(10, 7, 0\).+?NODE_MODULE_INIT.+?#endif/s,
-`#include "../../src/node_internals.h"
+`#include "../../../src/node_internals.h"
 #include <uv.h>
 static uv_once_t init_once = UV_ONCE_INIT;
 void yencode_init(Local<Object> exports, Local<Value> module, Local<Context> context, void* priv)`
