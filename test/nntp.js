@@ -2417,6 +2417,37 @@ it('should retry on badly formed responses if requested', function(done) {
 	], done);
 });
 
+it('should handle requests after a fatal post-upload failure', function(done) {
+	var server, client;
+	waterfall([
+		setupTest.bind(null, {postRetries: 0, requestRetries: 0}),
+		function(_server, _client, cb) {
+			server = _server;
+			client = _client;
+			client.connect(cb);
+		},
+		function(cb) {
+			var allDone = false;
+			var msg = 'My-Secret: not telling\r\n\r\nNyuu breaks free again!\r\n.\r\n';
+			server.expect('POST\r\n', function() {
+				this.expect(msg, function() {
+					this.expect('DATE\r\n', '111 20110204060810');
+					this.respond('444 bad response');
+					// TODO: check that the client disconnects after receiving this response
+				});
+				this.respond('340  Send article');
+			});
+			client.post(new DummyPost(msg), function(err, messageId) {
+				assert.equal(err.code, 'unknown_error');
+				client.date(cb);
+			});
+		}, function(date, cb) {
+			assert.equal(date.toString(), (new Date('2011-02-04 06:08:10')).toString());
+			closeTest(client, server, cb);
+		}
+	], done);
+});
+
 it('should deal with a connection drop after receiving partial data');
 it('should deal with the case of newlines being split across packets'); // or in unfortunate positions
 
