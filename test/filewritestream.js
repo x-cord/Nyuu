@@ -33,11 +33,11 @@ var target = path.join(process.env.TMP || process.env.TEMP || '.', 'fwstream');
 					})(function() {
 						endCalled = true;
 						stream.end(function() {
-							tl.defer(function() {
+							setTimeout(function() {
 								assert(closed);
 								fs.unlinkSync(target);
 								done();
-							});
+							}, 200);
 						});
 					});
 				});
