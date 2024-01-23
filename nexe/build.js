@@ -184,12 +184,17 @@ nexe.compile({
 			var data = await compiler.readFileAsync('deps/yencode/src/yencode.cc');
 			data = data.contents.toString();
 			data = data.replace(/#if NODE_VERSION_AT_LEAST\(10, 7, 0\).+?NODE_MODULE_INIT.+?#endif/s,
-`#include "../../../src/node_internals.h"
+`#define NODE_WANT_INTERNALS 1
+#include "../../../src/node_internals.h"
 #include <uv.h>
 static uv_once_t init_once = UV_ONCE_INIT;
 void yencode_init(Local<Object> exports, Local<Value> module, Local<Context> context, void* priv)`
 			);
-			data = data.replace(/(\nNODE_BUILTIN_MODULE_CONTEXT_AWARE\(yencode, yencode_init\))?$/, "\nNODE_BUILTIN_MODULE_CONTEXT_AWARE(yencode, yencode_init)");
+			if(parseFloat(nodeVer) >= 12) {
+				data = data.replace(/(\nNODE_MODULE_CONTEXT_AWARE_INTERNAL\(yencode, yencode_init\))?$/, "\nNODE_MODULE_CONTEXT_AWARE_INTERNAL(yencode, yencode_init)");
+			} else {
+				data = data.replace(/(\nNODE_BUILTIN_MODULE_CONTEXT_AWARE\(yencode, yencode_init\))?$/, "\nNODE_BUILTIN_MODULE_CONTEXT_AWARE(yencode, yencode_init)");
+			}
 			await compiler.setFileContentsAsync('deps/yencode/src/yencode.cc', data);
 			
 			data = await compiler.readFileAsync('deps/yencode/index.js');
