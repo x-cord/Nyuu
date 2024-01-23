@@ -50,8 +50,9 @@ let b = browserify(['../bin/nyuu.js'], {
 
 
 // invoke nexe
+// --without-corepack
 var configureArgs = [staticness, '--without-dtrace', '--without-etw', '--without-npm', '--with-intl=none', '--without-report', '--without-node-options', '--without-inspector', '--without-siphash', '--dest-cpu=' + buildArch];
-var vcbuildArgs = ["nosign", buildArch, "noetw", "intl-none", "release", "static", "no-cctest"];
+var vcbuildArgs = ["nosign", buildArch, "noetw", "intl-none", "release", "static"];
 // --v8-lite-mode ?
 if(parseFloat(nodeVer) >= 8) {
 	configureArgs.push('--without-intl');
@@ -62,7 +63,7 @@ if(parseFloat(nodeVer) >= 10) {
 		configureArgs.push('--enable-lto');
 	if(buildOs == 'win32') {
 		configureArgs.push('--with-ltcg');
-		vcbuildArgs.push('ltcg');
+		vcbuildArgs.push('ltcg', 'no-cctest');
 	}
 } else {
 	configureArgs.push('--without-perfctr');
@@ -74,6 +75,8 @@ if(process.env.BUILD_CONFIGURE)
 	configureArgs = configureArgs.concat(process.env.BUILD_CONFIGURE.split(' '));
 if(process.env.BUILD_VCBUILD)
 	vcbuildArgs = vcbuildArgs.concat(process.env.BUILD_VCBUILD.split(' '));
+
+var v8gyp = parseFloat(nodeVer) >= 12 ? 'tools/v8_gypfiles/v8.gyp' : (parseFloat(nodeVer) >= 10 ? 'deps/v8/gypfiles/v8.gyp' : 'deps/v8/src/v8.gyp');
 
 nexe.compile({
 	input: null, // we'll overwrite _third_party_main instead
@@ -104,14 +107,23 @@ nexe.compile({
 	patches: [
 		// remove nexe's boot-nexe code + fix argv
 		async (compiler, next) => {
-			// TODO: is the double'd javascript entry (by nexe) problematic?
-			await compiler.replaceInFileAsync('lib/internal/bootstrap/pre_execution.js', /(initializePolicy|initializeFrozenIntrinsics)\(\);\s*!\(function.+?new Module.+?\}\)\(\);/s, "$1();");
+			var bootFile = 'lib/internal/bootstrap_node.js';
+			if(parseFloat(nodeVer) >= 12)
+				bootFile = 'lib/internal/bootstrap/pre_execution.js';
+			else if(parseFloat(nodeVer) >= 10)
+				bootFile = 'lib/internal/bootstrap/node.js';
+			
+			if(parseFloat(nodeVer) >= 12) {
+				// TODO: is the double'd javascript entry (by nexe) problematic?
+				await compiler.replaceInFileAsync(bootFile, /(initializePolicy|initializeFrozenIntrinsics)\(\);\s*!\(function.+?new Module.+?\}\)\(\);/s, "$1();");
+				
+				// fix argv
+				await compiler.replaceInFileAsync(bootFile, /patchProcessObject\(expandArgv1\);/, 'patchProcessObject(false); if(!process.send) process.argv.splice(1,0,"nyuu");');
+			}
 			
 			// I don't get the point of the fs patch, so just remove it...
-			await compiler.replaceInFileAsync('lib/internal/bootstrap/pre_execution.js', /if \(true\) \{.+?__nexe_patch\(.+?\}\n/s, '');
+			await compiler.replaceInFileAsync(bootFile, /if \(true\) \{.+?__nexe_patch\(.+?\}\n/s, '');
 			
-			// fix argv
-			await compiler.replaceInFileAsync('lib/internal/bootstrap/pre_execution.js', /patchProcessObject\(expandArgv1\);/, 'patchProcessObject(false); if(!process.send) process.argv.splice(1,0,"nyuu");');
 			return next();
 		},
 		
@@ -124,7 +136,11 @@ nexe.compile({
 		// fix for building on Alpine
 		// https://gitlab.alpinelinux.org/alpine/aports/-/issues/8626
 		async (compiler, next) => {
-			await compiler.replaceInFileAsync('tools/v8_gypfiles/v8.gyp', /('target_defaults': \{)( 'cflags': \['-U_FORTIFY_SOURCE'\],)?/, "$1 'cflags': ['-U_FORTIFY_SOURCE'],");
+			if(parseFloat(nodeVer) >= 12) {
+				await compiler.replaceInFileAsync(v8gyp, /('target_defaults': \{)( 'cflags': \['-U_FORTIFY_SOURCE'\],)?/, "$1 'cflags': ['-U_FORTIFY_SOURCE'],");
+			} else {
+				await compiler.replaceInFileAsync(v8gyp, /('target_defaults': {'cflags': \['-U_FORTIFY_SOURCE'\]}, )?'targets': \[/, "'target_defaults': {'cflags': ['-U_FORTIFY_SOURCE']}, 'targets': [");
+			}
 			await compiler.replaceInFileAsync('node.gyp', /('target_name': '(node_mksnapshot|mkcodecache|<\(node_core_target_name\)|<\(node_lib_target_name\))',)( 'cflags': \['-U_FORTIFY_SOURCE'\],)?/g, "$1 'cflags': ['-U_FORTIFY_SOURCE'],");
 			return next();
 		},
@@ -132,23 +148,29 @@ nexe.compile({
 		
 		// add yencode into source list
 		async (compiler, next) => {
-			var data = await compiler.readFileAsync('node.gyp');
-			data = data.contents.toString();
-			data = data.replace(/(['"]src\/node_file\.cc['"],)( 'deps\/yencode\/src\/yencode\.cc',)?/, "$1 'deps/yencode/src/yencode.cc',");
-			//data = data.replace(/('src\/node_main\.cc'[^]{2,50}'dependencies': \[\s*'deps\/histogram\/histogram\.gyp:histogram')(,'deps\/yencode\/binding\.gyp:yencode')?/, "$1,'deps/yencode/binding.gyp:yencode'");
-			data = data.replace(/('deps\/histogram\/histogram\.gyp:histogram')(,'deps\/yencode\/binding\.gyp:yencode')?/g, "$1,'deps/yencode/binding.gyp:yencode'");
-			data = data.replace(/(['"]<\(SHARED_INTERMEDIATE_DIR\)['"])(,?) # for node_natives\.h\r?\n/g, "$1,'deps/yencode/crcutil-1.0/code', 'deps/yencode/crcutil-1.0/examples', 'deps/yencode/src'$2");
-			//data = data.replace(/(['"]lib\/fs\.js['"],)( 'lib\/yencode\.js',)?/, "$1 'lib/yencode.js',");
-			await compiler.setFileContentsAsync('node.gyp', data);
+			var bindingsFile;
+			if(parseFloat(nodeVer) >= 12) {
+				await compiler.replaceInFileAsync('node.gyp', /('deps\/histogram\/histogram\.gyp:histogram')(,'deps\/yencode\/binding\.gyp:yencode')?/g, "$1,'deps/yencode/binding.gyp:yencode'");
+				bindingsFile = 'src/node_binding.cc';
+			} else if(parseFloat(nodeVer) >= 10) {
+				await compiler.replaceInFileAsync('node.gyp', /('target_name': '<\(node_lib_target_name\)',)('dependencies': \['deps\/yencode\/binding\.gyp:yencode'\], )?/g, "$1'dependencies': ['deps/yencode/binding.gyp:yencode'], ");
+				bindingsFile = 'src/node_internals.h';
+			} else {
+				await compiler.replaceInFileAsync('node.gyp', /('target_name': '<\(node_lib_target_name\)',[^}]*?'dependencies': \[)('deps\/yencode\/binding\.gyp:yencode', )?/g, "$1'deps/yencode/binding.gyp:yencode', ");
+				bindingsFile = 'src/node_internals.h';
+			}
 			
 			// also add it as a valid binding
-			await compiler.replaceInFileAsync('src/node_binding.cc', /(V\(async_wrap\))( V\(yencode\))?/, "$1 V(yencode)");
+			await compiler.replaceInFileAsync(bindingsFile, /(V\(async_wrap\))( V\(yencode\))?/, "$1 V(yencode)");
 			
-			// avoid nexe's methods to prevent double-writing this to node.gyp
-			const loaderFile = path.join(compiler.src, 'lib/internal/bootstrap/loaders.js');
-			data = fs.readFileSync(loaderFile).toString();
-			data = data.replace(/('async_wrap',)( 'yencode',)?/, "$1 'yencode',");
-			fs.writeFileSync(loaderFile, data);
+			// patch module whitelist
+			if(parseFloat(nodeVer) >= 12) {
+				// avoid nexe's methods to prevent double-writing this to node.gyp
+				const loaderFile = path.join(compiler.src, 'lib/internal/bootstrap/loaders.js');
+				data = fs.readFileSync(loaderFile).toString();
+				data = data.replace(/('async_wrap',)( 'yencode',)?/, "$1 'yencode',");
+				fs.writeFileSync(loaderFile, data);
+			}
 			
 			return next();
 		},
@@ -167,7 +189,7 @@ nexe.compile({
 static uv_once_t init_once = UV_ONCE_INIT;
 void yencode_init(Local<Object> exports, Local<Value> module, Local<Context> context, void* priv)`
 			);
-			data = data.replace(/(\nNODE_MODULE_CONTEXT_AWARE_INTERNAL\(yencode, yencode_init\))?$/, "\nNODE_MODULE_CONTEXT_AWARE_INTERNAL(yencode, yencode_init)");
+			data = data.replace(/(\nNODE_BUILTIN_MODULE_CONTEXT_AWARE\(yencode, yencode_init\))?$/, "\nNODE_BUILTIN_MODULE_CONTEXT_AWARE(yencode, yencode_init)");
 			await compiler.setFileContentsAsync('deps/yencode/src/yencode.cc', data);
 			
 			data = await compiler.readFileAsync('deps/yencode/index.js');
@@ -178,8 +200,11 @@ void yencode_init(Local<Object> exports, Local<Value> module, Local<Context> con
 			
 			data = await compiler.readFileAsync('deps/yencode/binding.gyp');
 			data = data.contents.toString();
-			data = data.replace(/"src\/yencode\.cc",/g, "");
 			data = data.replace(/"target_name": "yencode",( "type": "static_library",)?/, '"target_name": "yencode", "type": "static_library",');
+			var includeList = '"../../src", "../v8/include", "../uv/include"';
+			if(parseFloat(nodeVer) < 12)
+				includeList += ', "../cares/include"';
+			data = data.replace(/"include_dirs": \[("\.\.\/\.\.\/src"[^\]]+)?"crcutil/, '"include_dirs": [' + includeList + ', "crcutil');
 			data = data.replace(/"enable_native_tuning%": 1,/, '"enable_native_tuning%": 0,');
 			await compiler.setFileContentsAsync('deps/yencode/binding.gyp', data);
 			
@@ -199,7 +224,7 @@ void yencode_init(Local<Object> exports, Local<Value> module, Local<Context> con
 			await compiler.replaceInFileAsync('src/js_native_api.h', /(define NAPI_EXTERN) __declspec\(dllexport\)/, '$1');
 			await compiler.replaceInFileAsync('common.gypi', /'BUILDING_(V8|UV)_SHARED=1',/g, '');
 			await compiler.setFileContentsAsync('deps/zlib/win32/zlib.def', 'EXPORTS');
-			await compiler.replaceInFileAsync('tools/v8_gypfiles/v8.gyp', /'defines':\s*\["BUILDING_V8_BASE_SHARED"\],/g, '');
+			await compiler.replaceInFileAsync(v8gyp, /'defines':\s*\["BUILDING_V8_BASE_SHARED"\],/g, '');
 			
 			var data = await compiler.readFileAsync('node.gyp');
 			data = data.contents.toString();
@@ -264,7 +289,6 @@ void yencode_init(Local<Object> exports, Local<Value> module, Local<Context> con
 					resolve();
 				});
 			});
-			return p;
 		}
 	],
 	
