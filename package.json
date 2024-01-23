@@ -29,8 +29,7 @@
     "mocha" : "*",
     "nexe" : "*"
   },
-  "optionalDependencies" : {
-  },
+  "type": "commonjs",
   "pkg": {
     "assets": "help*.txt"
   },
