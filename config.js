@@ -82,7 +82,7 @@ maxPostErrors: 0, // if > 0, maximum number of failed articles to allow before a
 useLazyConnect: false, // if true, will only create connections when needed, rather than pre-emptively doing so
 
 /** Post/Article Options **/
-articleSize: 716800, // in bytes, must be a multiple of 2
+articleSize: 716800, // in bytes
 bytesPerLine: 128, // in bytes, note: as per yEnc specifications, it's possible to exceed this number
 articleEncoding: 'utf8', // must be an "8-bit charset" (i.e. not utf16 or the like)
 yencName: null, // set this to a function to overwrite/customise the 'name' field in the yEnc header; arguments are same as those for 'postHeaders' functions, with the 'part' argument always being 1
