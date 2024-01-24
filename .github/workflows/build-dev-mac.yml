@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-mac:
+  build-dev-mac:
     name: Build x64 MacOS binary
     runs-on: macos-latest
     env:
@@ -11,6 +11,9 @@ jobs:
       BUILD_LOGLEVEL: verbose
     steps:
       - uses: actions/checkout@v3
+      - uses: MatteoH2O1999/setup-python@v3
+        with:
+          python-version: '3.11'
       - run: npm install --production
       - run: (cd nexe && npm install --production)
       - run: (cd nexe && node build)
