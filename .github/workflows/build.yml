@@ -63,6 +63,9 @@ jobs:
       BUILD_CONFIGURE: '--with-arm-float-abi=hard --with-arm-fpu=vfpv3-d16'
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9' # workaround "cannot import name 'Mapping' from 'collections'" error
       - uses: Lesmiscore/musl-cross-compilers@jockie
         id: musl
         with:
@@ -105,9 +108,9 @@ jobs:
       BUILD_LOGLEVEL: verbose
     steps:
       - uses: actions/checkout@v3
-      - uses: MatteoH2O1999/setup-python@v3
+      - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.9' # workaround "cannot import name 'Mapping' from 'collections'" error
       - name: Get release
         id: get_release
         uses: bruceadams/get-release@v1.2.3
