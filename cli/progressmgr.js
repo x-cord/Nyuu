@@ -37,12 +37,14 @@ var writeState = function(uploader, startTime, conn, debug) {
 					host = 'unix:' + c.opts.connect.path;
 				else
 					host = c.opts.connect.host + ':' + c.opts.connect.port;
+				var timeStats = c.timeStats(now);
 				conn.write([
 					'  Host: ' + host,
 					'  State: ' + c.getCurrentActivity() + (c.lastActivity ? ' for ' + ((now - c.lastActivity)/1000) + 's' : ''),
 					'  Transfer: ' + cliUtil.friendlySize(c.bytesRecv) + ' down / ' + cliUtil.friendlySize(c.bytesSent) + ' up',
 					'  Requests: ' + c.numRequestsDetail(),
 					'  Connects: ' + c.numConnects,
+					'  Time Idle: ' + (timeStats.idle / 1000) + 's (' + toPercent(timeStats.connected ?timeStats.idle/timeStats.connected : 0) + ')',
 					'  Errors: ' + c.numErrorsDetail(),
 					'', ''
 				].join('\r\n'));
