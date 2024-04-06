@@ -21,8 +21,6 @@ servers: [
 			
 			// SSL options
 			rejectUnauthorized: true,
-			
-			highWaterMark: 0, // disable node's internal bufferring to improve our timings (we always send full chunks, so bufferring by node isn't needed)
 		},
 		secure: false, // set to true to use SSL
 		user: '',
